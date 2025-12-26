@@ -11,7 +11,7 @@ app = Flask(__name__)
 CORS(app)
 
 # ★重要：メモリ不足を防ぐため「軽量モデル(u2netp)」を指定
-session = new_session("u2net")
+session = new_session("u2netp")
 
 @app.route('/process', methods=['POST'])
 def process_image():
@@ -62,4 +62,5 @@ def process_image():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
+
 
