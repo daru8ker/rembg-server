@@ -10,8 +10,8 @@ import base64
 app = Flask(__name__)
 CORS(app)
 
-# モデルを事前にロード（初回高速化）
-session = new_session("u2net")
+# ★重要：メモリ不足を防ぐため「軽量モデル(u2netp)」を指定してロード
+session = new_session("u2netp")
 
 @app.route('/process', methods=['POST'])
 def process_image():
@@ -27,17 +27,29 @@ def process_image():
         
         input_image = Image.open(BytesIO(response.content)).convert("RGBA")
 
-        # 【重要】無料サーバー対策：画像をリサイズしてメモリ不足エラーを防ぐ
-        # 最大辺を1000pxに制限（画質は十分維持されます）
+        # リサイズ（メモリ節約用）
         input_image.thumbnail((1000, 1000), Image.LANCZOS)
 
-        # 背景削除実行
+        # 背景削除 (軽量セッションを使用)
         no_bg_image = remove(input_image, session=session, alpha_matting=True)
 
-        # 白背景と合成
-        white_bg = Image.new("RGBA", no_bg_image.size, "WHITE")
-        white_bg.paste(no_bg_image, (0, 0), no_bg_image)
-        final_image = white_bg.convert("RGB")
+        # ★正方形の白背景を作成する処理
+        # 元の画像の 幅 と 高さ のうち、大きい方を正方形の一辺にする
+        w, h = no_bg_image.size
+        max_dim = max(w, h)
+        
+        # 白い正方形のキャンバスを作成
+        square_bg = Image.new("RGBA", (max_dim, max_dim), "WHITE")
+        
+        # 真ん中に配置するための座標を計算
+        paste_x = (max_dim - w) // 2
+        paste_y = (max_dim - h) // 2
+        
+        # 白背景の上に、背景削除した画像を重ねる
+        square_bg.paste(no_bg_image, (paste_x, paste_y), no_bg_image)
+        
+        # 最終出力をRGBに変換
+        final_image = square_bg.convert("RGB")
 
         # Base64変換
         buffered = BytesIO()
@@ -49,6 +61,10 @@ def process_image():
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/', methods=['GET'])
+def health_check():
+    return "Server is running!", 200
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
