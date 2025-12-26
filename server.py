@@ -10,9 +10,7 @@ import base64
 app = Flask(__name__)
 CORS(app)
 
-# ★ここが最大のポイント！
-# 標準の "u2net" (170MB) ではなく、軽量版 "u2netp" (4MB) を使います。
-# これなら無料サーバーでもメモリ不足にならず、処理も高速です。
+# ★重要：メモリ不足を防ぐため「軽量モデル(u2netp)」を指定
 session = new_session("u2netp")
 
 @app.route('/process', methods=['POST'])
@@ -35,19 +33,19 @@ def process_image():
         # 背景削除（軽量モデル使用）
         no_bg_image = remove(input_image, session=session, alpha_matting=True)
 
-        # ★ご希望の「正方形・白背景」加工をサーバー側で行います
-        # こうすれば、ダウンロードするだけで完璧な画像になります
+        # ★正方形・白背景加工処理
         w, h = no_bg_image.size
         max_dim = max(w, h)
         
-        # 白い正方形の台紙を作る
+        # 白い正方形のキャンバスを作成
         square_bg = Image.new("RGBA", (max_dim, max_dim), "WHITE")
         
-        # 真ん中に貼り付け
+        # 画像を中央に配置
         paste_x = (max_dim - w) // 2
         paste_y = (max_dim - h) // 2
         square_bg.paste(no_bg_image, (paste_x, paste_y), no_bg_image)
         
+        # 最終出力をRGB（PNGなど）に変換
         final_image = square_bg.convert("RGB")
 
         # Base64変換して返却
