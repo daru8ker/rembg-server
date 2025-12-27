@@ -10,7 +10,7 @@ import requests
 app = Flask(__name__)
 CORS(app)
 
-# Standardプランなので高画質モデルを使用
+# Standardプラン: 高画質モデル
 session = new_session("u2net")
 
 @app.route('/process', methods=['POST'])
@@ -18,7 +18,7 @@ def process_image():
     try:
         data = request.json
         
-        # 画像データの取得（URLまたはBase64）
+        # 画像取得
         if 'url' in data:
             image_url = data['url']
             headers = {'User-Agent': 'Mozilla/5.0'}
@@ -33,12 +33,13 @@ def process_image():
         else:
             return jsonify({'error': '画像データが必要です'}), 400
 
-        # 高画質用に大きめにリサイズ
+        # リサイズ（高画質維持）
         input_image.thumbnail((2000, 2000), Image.LANCZOS)
 
-        # ★【改善ポイント】post_process_mask=True を追加
-        # これにより、境界線の判定精度が向上し、塗りつぶし問題が改善します。
-        no_bg_image = remove(input_image, session=session, alpha_matting=True, post_process_mask=True)
+        # ★【重要修正】alpha_matting を削除しました
+        # これがエラー(division by zero)と黒塗り画像の元凶でした。
+        # カードのような直線の多い物体は、この標準モードの方が圧倒的に綺麗に抜けます。
+        no_bg_image = remove(input_image, session=session)
 
         # 正方形・白背景加工
         w, h = no_bg_image.size
