@@ -10,7 +10,7 @@ import requests
 app = Flask(__name__)
 CORS(app)
 
-# 高画質モデル
+# Standardプランなので高画質モデル
 session = new_session("u2net")
 
 @app.route('/process', methods=['POST'])
@@ -18,7 +18,7 @@ def process_image():
     try:
         data = request.json
         
-        # 1. URLで送られてきた場合（今まで通り）
+        # 1. URLで送られてきた場合
         if 'url' in data:
             image_url = data['url']
             headers = {'User-Agent': 'Mozilla/5.0'}
@@ -26,18 +26,18 @@ def process_image():
             response.raise_for_status()
             input_image = Image.open(BytesIO(response.content)).convert("RGBA")
             
-        # 2. 【新機能】画像データ(Base64)で送られてきた場合（ブロック回避用）
+        # 2. 画像データ(Base64)で送られてきた場合
         elif 'image_data' in data:
             image_data = data['image_data']
-            # "data:image/jpeg;base64," などのヘッダーを削除
             if "," in image_data:
                 image_data = image_data.split(",")[1]
             input_image = Image.open(BytesIO(base64.b64decode(image_data))).convert("RGBA")
             
         else:
-            return jsonify({'error': '画像データが必要です'}), 400
+            # エラーメッセージを変更しました。これが表示されれば新コードです。
+            return jsonify({'error': '画像データまたはURLが必要です'}), 400
 
-        # 高画質用に大きめにリサイズ
+        # 高画質用にリサイズ緩和
         input_image.thumbnail((2000, 2000), Image.LANCZOS)
 
         # 背景削除
@@ -52,7 +52,6 @@ def process_image():
         square_bg.paste(no_bg_image, (paste_x, paste_y), no_bg_image)
         final_image = square_bg.convert("RGB")
 
-        # 返却
         buffered = BytesIO()
         final_image.save(buffered, format="PNG")
         img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
