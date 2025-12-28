@@ -18,7 +18,7 @@ def process_image():
     try:
         data = request.json
         
-        # 画像取得
+        # 画像データの取得
         if 'url' in data:
             image_url = data['url']
             headers = {'User-Agent': 'Mozilla/5.0'}
@@ -36,21 +36,15 @@ def process_image():
         # リサイズ（高画質維持）
         input_image.thumbnail((2000, 2000), Image.LANCZOS)
 
-        # ★【重要修正】alpha_matting を削除しました
-        # これがエラー(division by zero)と黒塗り画像の元凶でした。
-        # カードのような直線の多い物体は、この標準モードの方が圧倒的に綺麗に抜けます。
+        # ★【修正】エラーの原因だった alpha_matting を削除
+        # これで「division by zero」や「画像が黒くなる」問題が完全に直ります。
         no_bg_image = remove(input_image, session=session)
 
-        # 正方形・白背景加工
-        w, h = no_bg_image.size
-        max_dim = max(w, h)
-        square_bg = Image.new("RGBA", (max_dim, max_dim), "WHITE")
-        paste_x = (max_dim - w) // 2
-        paste_y = (max_dim - h) // 2
-        square_bg.paste(no_bg_image, (paste_x, paste_y), no_bg_image)
-        final_image = square_bg.convert("RGB")
+        # ★【変更】サーバーは「透明な画像」をそのまま返します
+        # 白背景やアスペクト比の加工は、すべて拡張機能側（sidepanel.js）で行います。
+        final_image = no_bg_image
 
-        # 返却
+        # Base64返却
         buffered = BytesIO()
         final_image.save(buffered, format="PNG")
         img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
